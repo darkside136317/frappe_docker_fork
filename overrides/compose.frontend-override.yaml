@@ -1,0 +1,39 @@
+services:
+  backend:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
+
+  frontend:
+    image: frappe/erpnext:version-15
+    pull_policy: missing
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
+
+  websocket:
+    # Fix: websocket uses socket.request.headers.origin to call back to Frappe for auth.
+    # In Docker, ury.local is unknown — must resolve via extra_hosts to the frontend (nginx).
+    extra_hosts:
+      - "ury.local:host-gateway"
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
+
+  queue-short:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
+
+  queue-long:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
+
+  scheduler:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - assets:/home/frappe/frappe-bench/sites/assets
+
+volumes:
+  assets:

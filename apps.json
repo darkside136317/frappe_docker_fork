@@ -1,0 +1,14 @@
+[
+  {
+    "url": "https://github.com/frappe/erpnext.git",
+    "branch": "version-15"
+  },
+  {
+    "url": "https://github.com/frappe/hrms.git",
+    "branch": "version-15"
+  },
+  {
+    "url": "https://github.com/darkside136317/ury_fork.git",
+    "branch": "develop"
+  }
+]

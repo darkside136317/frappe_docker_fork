@@ -29,6 +29,18 @@ venv
 # NodeJS
 node_modules
 
+# Generated frontend bundles and sync artifacts
+dist_*/
+tmp_dist_*/
+tmp_sync/
+tmp_*/
+*.tar.gz
+_ury_src/**/node_modules
+_ury_src/ury/public/pos/
+_ury_src/ury/public/urypos/
+_ury_src/ury/public/URYMosaic/
+ury_fork/
+
 # VitePress
 **/.vitepress/dist
 **/.vitepress/cache
