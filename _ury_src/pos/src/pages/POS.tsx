@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { t } from '../i18n';
+import { t, useI18nLanguage } from '../i18n';
 import { Star, TrendingUp } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import OrderPanel from '../components/OrderPanel';
@@ -14,6 +14,7 @@ import InitialLoader from '../components/InitialLoader';
 import { showToast } from '../components/ui/toast';
 
 export default function POS() {
+  useI18nLanguage();
   const {
     searchQuery,
     setSearchQuery,

@@ -53,8 +53,9 @@
     "processing_order": "Traitement en cours...",
     "loading_order": "Chargement des détails de la commande...",
     "edit_item": "Modifier l'article",
-    "add_comment": "Ajouter un commentaire",
-    "edit_comment": "Modifier le commentaire"
+    "add_comment": "Note de commande",
+    "edit_comment": "Modifier la note",
+    "order_note_label": "Note de commande"
   },
   "order": {
     "select_to_view": "Sélectionnez une commande pour voir les détails",
@@ -78,7 +79,9 @@
     "adjustment": "Ajustement",
     "total": "Total",
     "pay_button": "Payer {{amount}}",
-    "processing": "Traitement..."
+    "processing": "Traitement...",
+    "success_title": "Paiement réussi",
+    "failed_title": "Échec du paiement"
   },
   "pos": {
     "not_opened_title": "PDV non ouvert",
@@ -89,8 +92,11 @@
     "switch_to_desk": "Accéder au bureau"
   },
   "customer": {
-    "search_placeholder": "Rechercher un client...",
-    "type_to_search": "Tapez pour rechercher...",
+    "search_placeholder": "Nom ou numéro de téléphone...",
+    "search_hint": "Recherche par nom ou mobile (min. 2 lettres ou 3 chiffres).",
+    "type_more_chars": "Saisissez au moins {{count}} caractères pour chercher par nom.",
+    "type_more_digits": "Saisissez au moins {{count}} chiffres pour chercher par téléphone.",
+    "type_to_search": "Saisissez un nom ou un numéro...",
     "no_customers_found": "Aucun client trouvé",
     "add_new": "Ajouter un nouveau client",
     "add_with_name": "Ajouter \"{{name}}\"...",
@@ -109,10 +115,11 @@
     "failed_create": "Échec de la création du client. Veuillez réessayer."
   },
   "comment": {
-    "title": "Commentaires de la commande",
-    "label": "Ajouter des commentaires pour cette commande",
-    "placeholder": "Entrez des instructions spéciales ou des commentaires...",
-    "save_button": "Enregistrer le commentaire"
+    "title": "Note de commande",
+    "label": "Note pour toute la commande",
+    "order_hint": "S'applique à toute la commande. Les notes par plat se définissent dans la fiche produit.",
+    "placeholder": "Ex. servir ensemble, table anniversaire, peu épicé...",
+    "save_button": "Enregistrer la note"
   },
   "errors": {
     "pos_profile_not_found": "Profil PDV introuvable",
@@ -136,10 +143,17 @@
     "invalid_discount": "Veuillez entrer une valeur de remise valide",
     "discount_exceeds_max": "La remise en pourcentage ne peut pas dépasser 100 %",
     "please_print_first": "Veuillez imprimer la facture avant d'effectuer le paiement",
+    "payment_failed": "Échec du paiement : {{reason}}",
+    "payment_no_method": "Veuillez saisir un montant pour au moins un mode de paiement",
+    "payment_amount_insufficient": "Montant saisi ({{entered}}) inférieur au total dû ({{due}})",
     "enter_cancel_reason": "Veuillez entrer un motif d'annulation.",
     "dine_in_restricted": "La consommation sur place n'est pas disponible pour votre rôle",
     "insufficient_stock_order": "Stock insuffisant pour {{name}} : disponible {{available}}, commandé {{ordered}}.",
-    "item_out_of_stock": "Cet article est en rupture de stock."
+    "insufficient_stock_cart": "Stock insuffisant : disponible {{available}}, demandé {{requested}}.",
+    "insufficient_stock_max": "Maximum disponible : {{available}} pour cet article.",
+    "item_out_of_stock": "Cet article est en rupture de stock.",
+    "failed_add_to_cart": "Impossible d'ajouter au panier.",
+    "failed_update_quantity": "Impossible de mettre à jour la quantité."
   },
   "success": {
     "order_cancelled": "Commande annulée avec succès",
@@ -147,6 +161,7 @@
     "order_updated": "Commande mise à jour avec succès",
     "printed": "Imprimé avec succès",
     "payment_successful": "Paiement réussi",
+    "payment_successful_detail": "Paiement effectué — Facture {{invoice}}",
     "order_moved_to_draft": "Commande déplacée en brouillon après impression."
   },
   "orders": {
@@ -206,7 +221,8 @@
   },
   "product_dialog": {
     "special_instructions": "Instructions spéciales",
-    "special_instructions_placeholder": "Ajoutez des instructions spéciales ou des notes pour cet article...",
+    "special_instructions_placeholder": "Ex. sans glace, plus épicé, allergie arachide...",
+    "instructions_hint": "Affiché sur la ligne du panier et envoyé en cuisine pour ce plat.",
     "quantity": "Quantité",
     "variants": "Variantes",
     "addons": "Suppléments",

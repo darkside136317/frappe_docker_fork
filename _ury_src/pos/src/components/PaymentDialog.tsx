@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Percent, Coins } from 'lucide-react';
+import { X, Percent, Coins, CheckCircle2, AlertCircle } from 'lucide-react';
 import { usePOSStore } from '../store/pos-store';
-import { cn, formatCurrency } from '../lib/utils';
+import { formatCurrency, parseFrappeError } from '../lib/utils';
 import { Button, Input, Dialog, DialogContent } from './ui';
 import { call } from '../lib/frappe-sdk';
 import { DEFAULT_PAYMENT_MODE } from '../data/order-types';
 import { t } from '../i18n';
+import { showToast } from './ui/toast';
 
 
 interface PaymentDialogProps {
@@ -38,6 +39,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   const { paymentModes, fetchPaymentModes, posProfile: storePosProfile } = usePOSStore();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [discountType] = useState<'percentage'>('percentage'); // Only percentage now
   const [discountValue, setDiscountValue] = useState<string>('');
   const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
@@ -119,8 +121,27 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   };
 
   const handlePayment = async () => {
-    setIsProcessing(true);
     setError(null);
+    setSuccessMessage(null);
+
+    if (payments.length === 0) {
+      const msg = t('errors.payment_no_method');
+      setError(msg);
+      showToast.error(msg);
+      return;
+    }
+
+    if (paymentsTotal + 0.009 < finalTotal) {
+      const msg = t('errors.payment_amount_insufficient', {
+        entered: formatCurrency(paymentsTotal),
+        due: formatCurrency(finalTotal),
+      });
+      setError(msg);
+      showToast.error(msg);
+      return;
+    }
+
+    setIsProcessing(true);
     try {
       await call.post('ury.ury.doctype.ury_order.ury_order.make_invoice', {
         additionalDiscount: discountValue ? parseInt(discountValue) : null,
@@ -132,23 +153,56 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
         pos_profile: posProfile,
         table,
       });
-      // Show toast and reload orders (assume showToast and reload available globally)
-      if (typeof window !== 'undefined' && (window as any).showToast) {
-        (window as any).showToast.success('Payment successful');
-      }
-      onClose();
-      clearSelectedOrder();
+
+      const msg = t('success.payment_successful_detail', { invoice });
+      setSuccessMessage(msg);
+      showToast.success(msg, 5000);
+
       await fetchOrders();
+      clearSelectedOrder();
+
+      window.setTimeout(() => {
+        onClose();
+      }, 2500);
     } catch (err) {
-      setError((err as Error).message);
+      const reason = parseFrappeError(err, t('errors.failed_process_order'));
+      const msg = t('errors.payment_failed', { reason });
+      setError(msg);
+      showToast.error(msg, 8000);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const paymentNotice = successMessage ? (
+    <div
+      role="alert"
+      className="mx-4 mt-4 p-4 bg-green-50 border-2 border-green-400 rounded-lg flex gap-3 items-start shadow-sm"
+    >
+      <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0" />
+      <div>
+        <p className="text-green-900 font-bold text-base">{t('payment.success_title')}</p>
+        <p className="text-green-800 text-sm mt-1">{successMessage}</p>
+      </div>
+    </div>
+  ) : error ? (
+    <div
+      role="alert"
+      className="mx-4 mt-4 p-4 bg-red-50 border-2 border-red-400 rounded-lg flex gap-3 items-start shadow-sm"
+    >
+      <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
+      <div>
+        <p className="text-red-900 font-bold text-base">{t('payment.failed_title')}</p>
+        <p className="text-red-800 text-sm mt-1">{error}</p>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent variant="xlarge" className="bg-white w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row p-0" showCloseButton={false}>
+      <DialogContent variant="xlarge" className="bg-white w-full max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden" showCloseButton={false}>
+        {paymentNotice}
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
         {/* Left Column - Discount and Payment Mode */}
         <div className="md:w-1/2 p-6 border-b md:border-b-0 md:border-r border-gray-200 overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
@@ -232,14 +286,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
 
         {/* Right Column - Order Summary and Pay Button */}
         <div className="md:w-1/2 p-6 overflow-y-auto">
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Order Summary */}
+{/* Order Summary */}
           <div className="space-y-3 mb-6">
             <h3 className="text-lg font-semibold">{t('payment.order_summary')}</h3>
             <div className="space-y-2 text-sm">
@@ -275,12 +322,13 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
           {/* Payment Button */}
           <Button
             onClick={handlePayment}
-            disabled={isProcessing || payments.length === 0}
+            disabled={isProcessing || !!successMessage || payments.length === 0}
             variant={isProcessing || payments.length === 0 ? "secondary" : "default"}
             className="w-full"
           >
             {isProcessing ? t('payment.processing') : t('payment.pay_button', { amount: formatCurrency(paymentsTotal > 0 ? paymentsTotal : finalTotal) })}
           </Button>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

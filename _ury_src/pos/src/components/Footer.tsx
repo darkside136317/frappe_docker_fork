@@ -5,9 +5,10 @@ import {
   Table,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { t } from '../i18n';
+import { t, useI18nLanguage } from '../i18n';
 
 const Footer = () => {
+  useI18nLanguage();
 
   const navItems = [
     { icon: LayoutGrid, label: t('footer.pos'), path: '/' },

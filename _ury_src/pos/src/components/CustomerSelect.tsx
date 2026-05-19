@@ -1,56 +1,67 @@
 import { useState, useRef, useEffect } from 'react';
-import { UserPlus, Mail, Phone, Loader } from 'lucide-react';
+import { UserPlus, Phone, Loader, Search, User } from 'lucide-react';
 import { usePOSStore, type Customer } from '../store/pos-store';
 import { Button, Dialog, DialogContent, Input } from './ui';
 import { Select, SelectItem } from './ui';
 import { ChevronDown } from 'lucide-react';
 import React from 'react';
-import { addCustomer, type CreateCustomerData, searchCustomers } from '../lib/customer-api';
+import {
+  addCustomer,
+  type CreateCustomerData,
+  searchCustomers,
+  type CustomerSearchResult,
+  minCustomerSearchLength,
+  isPrimarilyPhoneQuery,
+  extractPhoneDigits,
+} from '../lib/customer-api';
 import { AggregatorSelect } from './AggregatorSelect';
 import { t } from '../i18n';
+import { cn } from '../lib/utils';
+
+function mapSearchResultToCustomer(row: CustomerSearchResult): Customer {
+  return {
+    id: row.name,
+    name: row.customer_name || row.name,
+    phone: row.mobile_number || '',
+  };
+}
 
 // NewCustomerForm component
-function NewCustomerForm({ 
-  onClose, 
-  onSuccess, 
-  isCreatingCustomer: parentIsCreatingCustomer, 
-  setIsCreatingCustomer: setParentIsCreatingCustomer, 
+function NewCustomerForm({
+  onClose,
+  onSuccess,
+  isCreatingCustomer: parentIsCreatingCustomer,
+  setIsCreatingCustomer: setParentIsCreatingCustomer,
   prefillName = '',
-  prefillPhone = ''
-}: { 
-  onClose: () => void; 
+  prefillPhone = '',
+}: {
+  onClose: () => void;
   onSuccess?: () => void;
   isCreatingCustomer?: boolean;
   setIsCreatingCustomer?: React.Dispatch<React.SetStateAction<boolean>>;
   prefillName?: string;
   prefillPhone?: string;
 }) {
-  const { customerGroups, territories, fetchCustomerGroups, fetchTerritories, setSelectedCustomer } = usePOSStore();
+  const { customerGroups, territories, fetchCustomerGroups, fetchTerritories, setSelectedCustomer } =
+    usePOSStore();
   const [newCustomerName, setNewCustomerName] = React.useState('');
   const [newCustomerPhone, setNewCustomerPhone] = React.useState('');
-  const [newCustomerGroup, setNewCustomerGroup] = React.useState("");
-  const [newCustomerTerritory, setNewCustomerTerritory] = React.useState("");
+  const [newCustomerGroup, setNewCustomerGroup] = React.useState('');
+  const [newCustomerTerritory, setNewCustomerTerritory] = React.useState('');
   const [formError, setFormError] = React.useState(false);
-  const [apiError, setApiError] = React.useState<string>("");
+  const [apiError, setApiError] = React.useState<string>('');
   const [loadingGroups, setLoadingGroups] = React.useState(false);
   const [loadingTerritories, setLoadingTerritories] = React.useState(false);
-  
-  // Use parent loading state if available, otherwise fallback to local state
+
   const [localIsCreatingCustomer, setLocalIsCreatingCustomer] = React.useState(false);
   const isCreatingCustomer = parentIsCreatingCustomer ?? localIsCreatingCustomer;
   const setIsCreatingCustomer = setParentIsCreatingCustomer ?? setLocalIsCreatingCustomer;
 
-  // Handle prefill values
   React.useEffect(() => {
-    if (prefillName) {
-      setNewCustomerName(prefillName);
-    }
-    if (prefillPhone) {
-      setNewCustomerPhone(prefillPhone);
-    }
+    if (prefillName) setNewCustomerName(prefillName);
+    if (prefillPhone) setNewCustomerPhone(prefillPhone);
   }, [prefillName, prefillPhone]);
 
-  // Fetch groups/territories on mount
   React.useEffect(() => {
     if (!customerGroups.length) {
       setLoadingGroups(true);
@@ -62,8 +73,6 @@ function NewCustomerForm({
     }
   }, []);
 
-
-
   async function handleAddCustomerSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!newCustomerName || !newCustomerPhone) {
@@ -72,7 +81,7 @@ function NewCustomerForm({
     }
 
     setFormError(false);
-    setApiError("");
+    setApiError('');
     setIsCreatingCustomer(true);
 
     try {
@@ -80,33 +89,25 @@ function NewCustomerForm({
         customer_name: newCustomerName.trim(),
         mobile_number: newCustomerPhone.trim(),
       };
-
-      // Add optional fields only if they have values
-      if (newCustomerGroup) {
-        customerData.customer_group = newCustomerGroup;
-      }
-      if (newCustomerTerritory) {
-        customerData.territory = newCustomerTerritory;
-      }
+      if (newCustomerGroup) customerData.customer_group = newCustomerGroup;
+      if (newCustomerTerritory) customerData.territory = newCustomerTerritory;
 
       const response = await addCustomer(customerData);
       const created = response.data;
-      // Set selected customer in POS store
       setSelectedCustomer({
-        id: created.name,
+        id: created.name || created.customer_name,
         name: created.customer_name,
         phone: created.mobile_number,
       });
-      // Reset form on success
-      setNewCustomerName("");
-      setNewCustomerPhone("");
-      setNewCustomerGroup("");
-      setNewCustomerTerritory("");
-      if (onSuccess) onSuccess();
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setNewCustomerGroup('');
+      setNewCustomerTerritory('');
+      onSuccess?.();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create customer:', error);
-      setApiError(error?.message || t('customer.failed_create'));
+      setApiError(error instanceof Error ? error.message : t('customer.failed_create'));
     } finally {
       setIsCreatingCustomer(false);
     }
@@ -120,12 +121,14 @@ function NewCustomerForm({
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-customer-name">{t('customer.name_label')} <span className="text-red-500">*</span></label>
+        <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-customer-name">
+          {t('customer.name_label')} <span className="text-red-500">*</span>
+        </label>
         <Input
           id="new-customer-name"
           type="text"
           value={newCustomerName}
-          onChange={e => setNewCustomerName(e.target.value)}
+          onChange={(e) => setNewCustomerName(e.target.value)}
           required
           disabled={isCreatingCustomer}
           aria-invalid={!!formError && !newCustomerName}
@@ -135,13 +138,15 @@ function NewCustomerForm({
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-customer-phone">{t('customer.phone_label')} <span className="text-red-500">*</span></label>
+        <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-customer-phone">
+          {t('customer.phone_label')} <span className="text-red-500">*</span>
+        </label>
         <div className="relative">
           <Input
             id="new-customer-phone"
             type="tel"
             value={newCustomerPhone}
-            onChange={e => setNewCustomerPhone(e.target.value)}
+            onChange={(e) => setNewCustomerPhone(e.target.value)}
             required
             disabled={isCreatingCustomer}
             className="pl-10"
@@ -154,7 +159,9 @@ function NewCustomerForm({
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{t('customer.customer_group_label')}</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {t('customer.customer_group_label')}
+        </label>
         <Select
           placeholder={loadingGroups ? t('common.loading') : t('customer.select_group')}
           value={newCustomerGroup}
@@ -190,12 +197,7 @@ function NewCustomerForm({
         )}
       </div>
       <div className="flex gap-3 mt-6">
-        <Button
-          type="submit"
-          variant="default"
-          className="flex-1"
-          disabled={isCreatingCustomer}
-        >
+        <Button type="submit" variant="default" className="flex-1" disabled={isCreatingCustomer}>
           {isCreatingCustomer ? (
             <>
               <Loader className="w-4 h-4 mr-2 animate-spin" />
@@ -205,12 +207,7 @@ function NewCustomerForm({
             t('customer.add_button')
           )}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onClose}
-          disabled={isCreatingCustomer}
-        >
+        <Button type="button" variant="outline" onClick={onClose} disabled={isCreatingCustomer}>
           {t('common.cancel')}
         </Button>
       </div>
@@ -223,96 +220,132 @@ interface CustomerSelectProps {
 }
 
 export function CustomerSelect({ disabled }: CustomerSelectProps) {
-  const { selectedCustomer, setSelectedCustomer, selectedOrderType, isUpdatingOrder } = usePOSStore();
+  const { selectedCustomer, setSelectedCustomer, selectedOrderType, isUpdatingOrder } =
+    usePOSStore();
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [prefillName, setPrefillName] = useState('');
   const [prefillPhone, setPrefillPhone] = useState('');
 
-  // Debounced search
+  const trimmedSearch = searchTerm.trim();
+  const minLen = trimmedSearch ? minCustomerSearchLength(trimmedSearch) : 0;
+  const effectiveLen = trimmedSearch
+    ? isPrimarilyPhoneQuery(trimmedSearch)
+      ? extractPhoneDigits(trimmedSearch).length
+      : trimmedSearch.length
+    : 0;
+  const needsMoreChars = trimmedSearch.length > 0 && effectiveLen < minLen;
+
   useEffect(() => {
-    if (!isOpen || !searchTerm.trim()) {
+    if (!isOpen || !trimmedSearch) {
       setSearchResults([]);
       setSearchError(null);
       setIsSearching(false);
       return;
     }
+    if (needsMoreChars) {
+      setSearchResults([]);
+      setSearchError(null);
+      setIsSearching(false);
+      return;
+    }
+
     setIsSearching(true);
     setSearchError(null);
     const handler = setTimeout(() => {
-      searchCustomers(searchTerm)
-        .then(results => {
+      searchCustomers(trimmedSearch, 12)
+        .then((results) => {
           setSearchResults(results);
           setIsSearching(false);
         })
-        .catch(err => {
+        .catch(() => {
           setSearchError(t('customer.failed_search'));
           setIsSearching(false);
         });
-    }, 300);
+    }, 280);
     return () => clearTimeout(handler);
-  }, [searchTerm, isOpen]);
+  }, [trimmedSearch, isOpen, needsMoreChars]);
 
-  // Handle keyboard navigation
+  const selectCustomer = (row: CustomerSearchResult) => {
+    setSelectedCustomer(mapSearchResultToCustomer(row));
+    setSearchTerm('');
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const totalOptions = searchResults.length + 1;
     if (!isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       setIsOpen(true);
       setHighlightedIndex(0);
       return;
     }
     if (e.key === 'ArrowDown') {
-      setHighlightedIndex((prev) => Math.min(prev + 1, searchResults.length));
+      setHighlightedIndex((prev) => Math.min(prev + 1, totalOptions - 1));
       e.preventDefault();
     } else if (e.key === 'ArrowUp') {
       setHighlightedIndex((prev) => Math.max(prev - 1, 0));
       e.preventDefault();
     } else if (e.key === 'Enter') {
-      if (isOpen) {
-        if (highlightedIndex === searchResults.length) {
-          setShowNewCustomerForm(true);
-          setIsOpen(false);
-        } else if (searchResults[highlightedIndex]) {
-          // The API returns { name, content, ... }
-          const customer = searchResults[highlightedIndex];
-          setSelectedCustomer({
-            id: customer.name,
-            name: customer.content?.match(/Customer Name : ([^|]+)/)?.[1]?.trim() || customer.name,
-            phone: customer.content?.match(/Mobile Number : ([^|]+)/)?.[1]?.trim() || '',
-          });
-          setSearchTerm('');
-          setIsOpen(false);
-        }
+      if (!isOpen || needsMoreChars) return;
+      if (highlightedIndex === searchResults.length) {
+        openNewCustomerForm();
+      } else if (searchResults[highlightedIndex]) {
+        selectCustomer(searchResults[highlightedIndex]);
       }
+      e.preventDefault();
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
+  };
+
+  const openNewCustomerForm = () => {
+    if (/^[\d\s\-+().]+$/.test(trimmedSearch) && extractPhoneDigits(trimmedSearch).length >= 3) {
+      setPrefillPhone(trimmedSearch);
+      setPrefillName('');
+    } else {
+      setPrefillName(trimmedSearch);
+      setPrefillPhone('');
+    }
+    setShowNewCustomerForm(true);
+    setIsOpen(false);
   };
 
   if (selectedOrderType === 'Aggregators') {
     return <AggregatorSelect />;
   }
 
+  const phoneMode = isPrimarilyPhoneQuery(trimmedSearch);
+
   return (
     <div className="relative">
       {selectedCustomer ? (
-        <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
-          <div>
-            <p className="font-medium text-blue-900">{selectedCustomer.name}</p>
-            <p className="text-sm text-blue-700">{selectedCustomer.phone}</p>
+        <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-100">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-blue-900 truncate">{selectedCustomer.name}</p>
+            {selectedCustomer.phone && (
+              <p className="text-sm text-blue-700 flex items-center gap-1 mt-0.5">
+                <Phone className="w-3.5 h-3.5 shrink-0" />
+                <span className="tabular-nums">{selectedCustomer.phone}</span>
+              </p>
+            )}
           </div>
           <Button
-            onClick={() => setSelectedCustomer(null)}
-            disabled={isUpdatingOrder}
+            onClick={() => {
+              setSelectedCustomer(null);
+              setTimeout(() => inputRef.current?.focus(), 0);
+            }}
+            disabled={disabled || isUpdatingOrder}
             variant="ghost"
             size="sm"
-            className="text-blue-700 hover:text-blue-800"
+            className="text-blue-700 hover:text-blue-800 shrink-0"
           >
             {t('common.change')}
           </Button>
@@ -320,105 +353,132 @@ export function CustomerSelect({ disabled }: CustomerSelectProps) {
       ) : (
         <div className="relative">
           <div className="flex items-center relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
               ref={inputRef}
-              type="text"
+              type="search"
+              inputMode={phoneMode ? 'tel' : 'search'}
               value={searchTerm}
-              onChange={e => {
+              onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setIsOpen(true);
                 setHighlightedIndex(0);
               }}
               onFocus={() => setIsOpen(true)}
-              onBlur={e => {
-                setTimeout(() => setIsOpen(false), 100);
-              }}
+              onBlur={() => setTimeout(() => setIsOpen(false), 150)}
               onKeyDown={handleKeyDown}
+              disabled={disabled}
               placeholder={t('customer.search_placeholder')}
-              className="w-full h-10 border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
+              className={cn(
+                'w-full h-10 border border-gray-200 rounded-lg pl-9 pr-9 py-2 text-sm',
+                'text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
               aria-label={t('customer.search_placeholder')}
               autoComplete="off"
             />
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
+          <p className="mt-1 text-[11px] text-gray-500">{t('customer.search_hint')}</p>
+
           {isOpen && (
-            <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-              {searchTerm.trim() === '' && !isSearching && !searchError && (
-                <div className="p-4 text-center text-gray-400 text-sm select-none">{t('customer.type_to_search')}</div>
+            <div className="absolute w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+              {!trimmedSearch && (
+                <div className="p-3 text-center text-gray-400 text-sm">{t('customer.type_to_search')}</div>
+              )}
+              {needsMoreChars && (
+                <div className="p-3 text-center text-gray-500 text-sm">
+                  {phoneMode
+                    ? t('customer.type_more_digits', { count: String(minLen) })
+                    : t('customer.type_more_chars', { count: String(minLen) })}
+                </div>
               )}
               {isSearching && (
-                <div className="flex items-center justify-center p-4 text-gray-500 text-sm select-none">
-                  <Loader className="w-4 h-4 mr-2 animate-spin" /> {t('common.searching')}
+                <div className="flex items-center justify-center p-4 text-gray-500 text-sm">
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  {t('common.searching')}
                 </div>
               )}
               {searchError && (
-                <div className="p-4 text-center text-red-500 text-sm select-none">{searchError}</div>
+                <div className="p-4 text-center text-red-500 text-sm">{searchError}</div>
               )}
-              {!isSearching && !searchError && searchResults.length > 0 && searchResults.map((customer, idx) => {
-                const name = customer.content?.match(/Customer Name : ([^|]+)/)?.[1]?.trim() || customer.name;
-                const phone = customer.content?.match(/Mobile Number : ([^|]+)/)?.[1]?.trim() || '';
-                return (
+              {!isSearching &&
+                !searchError &&
+                !needsMoreChars &&
+                searchResults.map((customer, idx) => (
                   <button
                     key={customer.name}
                     type="button"
-                    className={`w-full gap-2 px-4 py-2 text-left rounded-md text-gray-800 text-sm select-none transition-colors ${
-                      idx === highlightedIndex ? 'bg-primary-50 text-primary-700' : 'hover:bg-gray-50'
-                    }`}
-                    onMouseDown={() => {
-                      setSelectedCustomer({ id: customer.name, name, phone });
-                      setSearchTerm('');
-                      setIsOpen(false);
-                    }}
+                    className={cn(
+                      'w-full px-3 py-2.5 text-left border-b border-gray-50 last:border-0 transition-colors',
+                      idx === highlightedIndex ? 'bg-primary-50' : 'hover:bg-gray-50'
+                    )}
+                    onMouseDown={() => selectCustomer(customer)}
                     onMouseEnter={() => setHighlightedIndex(idx)}
                   >
-                    <div className="font-medium">{name}</div>
-                    <div className="ml-auto text-xs text-gray-500">{phone}</div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <User className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm text-gray-900 truncate">
+                          {customer.customer_name || customer.name}
+                        </div>
+                        {customer.mobile_number && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                            <Phone className="w-3 h-3 shrink-0" />
+                            <span className="tabular-nums">{customer.mobile_number}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </button>
-                );
-              })}
-              {!isSearching && !searchError && searchResults.length === 0 && searchTerm.trim() && (
-                <div className="p-4 text-center text-gray-400 text-sm select-none">{t('customer.no_customers_found')}</div>
+                ))}
+              {!isSearching &&
+                !searchError &&
+                !needsMoreChars &&
+                trimmedSearch &&
+                searchResults.length === 0 && (
+                  <div className="p-4 text-center text-gray-400 text-sm">
+                    {t('customer.no_customers_found')}
+                  </div>
+                )}
+              {trimmedSearch && !needsMoreChars && (
+                <>
+                  <div className="my-1 h-px bg-gray-100" />
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex items-center gap-2 w-full px-4 py-2.5 text-primary-600 hover:bg-gray-50 font-medium text-sm',
+                      highlightedIndex === searchResults.length && 'bg-primary-50'
+                    )}
+                    onMouseDown={openNewCustomerForm}
+                    onMouseEnter={() => setHighlightedIndex(searchResults.length)}
+                  >
+                    <UserPlus className="w-4 h-4 shrink-0" />
+                    <span className="truncate">
+                      {trimmedSearch
+                        ? t('customer.add_with_name', { name: trimmedSearch })
+                        : t('customer.add_new')}
+                    </span>
+                  </button>
+                </>
               )}
-              <div className="my-1 h-px bg-gray-100" />
-              <button
-                type="button"
-                className={`flex items-center gap-2 w-full px-4 py-2 text-primary-600 hover:text-primary-700 hover:bg-gray-50 font-medium rounded-md text-sm select-none transition-colors ${
-                  highlightedIndex === searchResults.length ? 'bg-primary-50' : ''
-                }`}
-                onMouseDown={() => {
-                  // Prefill logic
-                  if (/^\d+$/.test(searchTerm.trim())) {
-                    setPrefillPhone(searchTerm.trim());
-                    setPrefillName('');
-                  } else {
-                    setPrefillName(searchTerm.trim());
-                    setPrefillPhone('');
-                  }
-                  setShowNewCustomerForm(true);
-                  setIsOpen(false);
-                }}
-                onMouseEnter={() => setHighlightedIndex(searchResults.length)}
-              >
-                <UserPlus className="w-4 h-4" /> {searchTerm.trim() ? t('customer.add_with_name', { name: searchTerm.trim() }) : t('customer.add_new')}
-              </button>
             </div>
           )}
         </div>
       )}
       {showNewCustomerForm && (
-        <Dialog 
-          open={showNewCustomerForm} 
+        <Dialog
+          open={showNewCustomerForm}
           onOpenChange={(open) => {
-            // Prevent closing the dialog when creating customer
-            if (!isCreatingCustomer) {
-              setShowNewCustomerForm(open);
-            }
+            if (!isCreatingCustomer) setShowNewCustomerForm(open);
           }}
         >
           <DialogContent className="w-full max-w-md p-4 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('customer.add_customer_title')}</h3>
-            <NewCustomerForm 
-              onClose={() => setShowNewCustomerForm(false)} 
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {t('customer.add_customer_title')}
+            </h3>
+            <NewCustomerForm
+              onClose={() => setShowNewCustomerForm(false)}
               isCreatingCustomer={isCreatingCustomer}
               setIsCreatingCustomer={setIsCreatingCustomer}
               prefillName={prefillName}
@@ -429,4 +489,4 @@ export function CustomerSelect({ disabled }: CustomerSelectProps) {
       )}
     </div>
   );
-} 
+}

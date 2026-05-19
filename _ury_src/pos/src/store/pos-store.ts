@@ -16,6 +16,11 @@ import {
   validateActiveOrdersAgainstMenu,
 } from '../lib/stock-validation';
 import { t } from '../i18n';
+import { showToast } from '../components/ui/toast';
+import {
+  instructionFingerprint,
+  normalizeInstruction,
+} from '../lib/order-instructions';
 
 // Constants
 const MAX_QUANTITY = 99;
@@ -134,6 +139,8 @@ interface POSState {
   tableOrder: TableOrder | null;
   isInitializing: boolean;
   orderComment: string;
+  /** Item codes → qty when a table draft was loaded (avoids double-subtracting reserved stock in UI). */
+  orderStockBaseline: Record<string, number> | null;
 }
 
 interface POSStore extends POSState {
@@ -179,7 +186,8 @@ interface POSStore extends POSState {
 const generateUniqueId = (item: OrderItem): string => {
   const variantId = item.selectedVariant?.id || 'default';
   const addonIds = item.selectedAddons?.map(addon => addon.id).sort().join('-') || 'no-addons';
-  return `${item.id}-${variantId}-${addonIds}`;
+  const noteKey = instructionFingerprint(item.comment || '');
+  return `${item.id}-${variantId}-${addonIds}-${noteKey}`;
 };
 
 const calculateItemPrice = (item: OrderItem): number => {
@@ -219,6 +227,7 @@ export const usePOSStore = create<POSStore>((set, get) => ({
   isUpdatingOrder: false,
   orderId: null,
   orderComment: '',
+  orderStockBaseline: null,
 
   initializeApp: async () => {
     try {
@@ -433,7 +442,10 @@ export const usePOSStore = create<POSStore>((set, get) => ({
         const newTotal = others + mergedQty;
         if (newTotal > avail) {
           throw new CartError(
-            `Insufficient stock for this item: available ${avail}, requested ${newTotal}.`
+            t('errors.insufficient_stock_cart', {
+              available: String(avail),
+              requested: String(newTotal),
+            })
           );
         }
       }
@@ -441,7 +453,10 @@ export const usePOSStore = create<POSStore>((set, get) => ({
       if (existingItemIndex !== -1) {
         const existingItem = get().activeOrders[existingItemIndex];
         const newQuantity = existingItem.quantity + item.quantity;
-        const newComment = item.comment !== undefined ? item.comment : existingItem?.comment || "";
+        const newComment =
+          item.comment !== undefined
+            ? normalizeInstruction(item.comment)
+            : existingItem?.comment || '';
 
         if (!get().validateQuantity(newQuantity)) {
           throw new CartError(`Cannot add item. Total quantity would exceed ${MAX_QUANTITY}`);
@@ -456,14 +471,22 @@ export const usePOSStore = create<POSStore>((set, get) => ({
         
         set({ activeOrders: newOrders });
       } else {
-        const newOrders = [...get().activeOrders, { ...item, uniqueId }];
+        const comment = normalizeInstruction(item.comment);
+        const newOrders = [
+          ...get().activeOrders,
+          {
+            ...item,
+            comment: comment || undefined,
+            uniqueId: generateUniqueId({ ...item, comment: comment || undefined }),
+          },
+        ];
         set({ activeOrders: newOrders });
       }
     } catch (error) {
       if (error instanceof CartError) {
-        set({ error: error.message });
+        showToast.error(error.message);
       } else {
-        set({ error: 'Failed to add item to cart' });
+        showToast.error(t('errors.failed_add_to_cart'));
       }
     }
   },
@@ -499,7 +522,7 @@ export const usePOSStore = create<POSStore>((set, get) => ({
         }, 0);
         if (others + quantity > avail) {
           throw new CartError(
-            `Insufficient stock: maximum available is ${avail} for this item.`
+            t('errors.insufficient_stock_max', { available: String(avail) })
           );
         }
       }
@@ -510,9 +533,9 @@ export const usePOSStore = create<POSStore>((set, get) => ({
       set({ activeOrders: newOrders });
     } catch (error) {
       if (error instanceof CartError) {
-        set({ error: error.message });
+        showToast.error(error.message);
       } else {
-        set({ error: 'Failed to update quantity' });
+        showToast.error(t('errors.failed_update_quantity'));
       }
     }
   },
@@ -547,7 +570,8 @@ export const usePOSStore = create<POSStore>((set, get) => ({
       activeOrders: [],
       selectedOrderType: type,
       isUpdatingOrder: false,
-      orderId: null
+      orderId: null,
+      orderStockBaseline: null,
     });
     
     if (type !== 'Aggregators') {
@@ -684,6 +708,7 @@ export const usePOSStore = create<POSStore>((set, get) => ({
       const order = response.message;
       if (order && order.name && order.items && order.items.length > 0) {
         const orderItems: OrderItem[] = order.items.map(item => {
+          const comment = normalizeInstruction(item.comment);
           const orderItem = {
             id: item.item_code,
             name: item.item_name,
@@ -698,23 +723,36 @@ export const usePOSStore = create<POSStore>((set, get) => ({
             description: item.description || '',
             special_dish: 0 as 0 | 1,
             tax_rate: 0,
+            comment: comment || undefined,
           };
           return {
             ...orderItem,
-            uniqueId: generateUniqueId(orderItem as OrderItem)
+            uniqueId: generateUniqueId(orderItem as OrderItem),
           } as OrderItem;
         });
+
+        const baseline: Record<string, number> = {};
+        for (const o of orderItems) {
+          const code = itemCodeForStock(o);
+          if (code) baseline[code] = (baseline[code] || 0) + o.quantity;
+        }
 
         set({ 
           tableOrder: response,
           activeOrders: orderItems,
-          selectedCustomer: order.customer ? {
-            id: order.customer,
-            name: order.customer_name,
-            phone: order.mobile_number,
-          } : null,
+          selectedCustomer: order.customer
+            ? {
+                id: order.customer,
+                name: order.customer_name || order.customer,
+                phone: order.mobile_number || '',
+              }
+            : null,
           isUpdatingOrder: true,
           orderId: order.name,
+          orderStockBaseline: baseline,
+          orderComment: normalizeInstruction(
+            (order as { custom_comments?: string }).custom_comments
+          ),
         });
       } else {
         set({ 
@@ -723,6 +761,7 @@ export const usePOSStore = create<POSStore>((set, get) => ({
           selectedCustomer: null,
           isUpdatingOrder: false,
           orderId: null,
+          orderStockBaseline: null,
         });
       }
     } catch (error) {
@@ -733,6 +772,7 @@ export const usePOSStore = create<POSStore>((set, get) => ({
         selectedCustomer: null,
         isUpdatingOrder: false,
         orderId: null,
+        orderStockBaseline: null,
       });
     } finally {
       set({ orderLoading: false });
@@ -746,6 +786,7 @@ export const usePOSStore = create<POSStore>((set, get) => ({
       selectedCustomer: null,
       isUpdatingOrder: false,
       orderId: null,
+      orderStockBaseline: null,
     });
   },
 
@@ -773,6 +814,7 @@ export const usePOSStore = create<POSStore>((set, get) => ({
       error: null,
       selectedOrderType: DEFAULT_ORDER_TYPE,
       orderComment: '',
+      orderStockBaseline: null,
     });
 
     fetchMenuItems();

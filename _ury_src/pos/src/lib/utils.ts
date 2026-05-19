@@ -6,6 +6,46 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export type FrappeErrorLike = {
+  message?: string;
+  _server_messages?: string;
+  exc_type?: string;
+  exception?: string;
+};
+
+/** Extract a human-readable message from Frappe / frappe-js-sdk errors. */
+export function parseFrappeError(error: unknown, fallback: string): string {
+  if (!error) return fallback;
+  if (typeof error === 'string') return error;
+
+  const e = error as FrappeErrorLike;
+
+  if (e._server_messages) {
+    try {
+      const messages = JSON.parse(e._server_messages) as unknown[];
+      for (const raw of messages) {
+        const parsed =
+          typeof raw === 'string' ? (JSON.parse(raw) as { message?: string }) : (raw as { message?: string });
+        if (parsed?.message) {
+          return String(parsed.message).replace(/<[^>]+>/g, '').trim();
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  if (e.message && typeof e.message === 'string') {
+    return e.message;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 export function formatCurrency(amount: number): string {
   let symbol =
     storage.getItem('currencySymbol') ||

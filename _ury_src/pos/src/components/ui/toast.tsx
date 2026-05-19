@@ -11,45 +11,35 @@ const toastIcons = {
   info: <Info className="w-5 h-5" />,
 };
 
+const toastOptions = (autoClose = 2000) => ({
+  position: 'top-right' as const,
+  autoClose,
+  hideProgressBar: false,
+  closeOnClick: true,
+  pauseOnHover: true,
+  draggable: true,
+  progress: undefined,
+  theme: 'colored' as const,
+});
+
 export const showToast = {
-  success: (message: string) => {
+  success: (message: string, autoCloseMs = 2000) => {
     toast.success(message, {
-      position: 'top-right',
-      autoClose: 2000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: 'colored',
+      ...toastOptions(autoCloseMs),
       icon: toastIcons.success,
       className: 'toast-success',
     });
   },
-  error: (message: string) => {
+  error: (message: string, autoCloseMs = 5000) => {
     toast.error(message, {
-      position: 'top-right',
-      autoClose: 2000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: 'colored',
+      ...toastOptions(autoCloseMs),
       icon: toastIcons.error,
       className: 'toast-error',
     });
   },
-  info: (message: string) => {
+  info: (message: string, autoCloseMs = 2000) => {
     toast.info(message, {
-      position: 'top-right',
-      autoClose: 2000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: 'colored',
+      ...toastOptions(autoCloseMs),
       icon: toastIcons.info,
       className: 'toast-info',
     });

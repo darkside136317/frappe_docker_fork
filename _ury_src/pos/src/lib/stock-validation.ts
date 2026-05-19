@@ -13,9 +13,10 @@ export interface StockMenuFields {
 export interface CartLineForStock {
   item?: string;
   id?: string;
+  uniqueId?: string;
   name?: string;
   item_name?: string;
-  quantity: number;
+  quantity?: number;
 }
 
 export type CartStockResult =
@@ -55,6 +56,53 @@ export function stockAvailable(menuLine: StockMenuFields | null | undefined): nu
   return Number(menuLine.stock_qty);
 }
 
+export function cartQtyForItemCode(
+  activeOrders: CartLineForStock[],
+  itemCode: string
+): number {
+  if (!itemCode) return 0;
+  return activeOrders.reduce(
+    (sum, o) => (itemCodeForStock(o) === itemCode ? sum + (o.quantity ?? 0) : sum),
+    0
+  );
+}
+
+/**
+ * Qty still orderable for display on menu cards.
+ * When editing a saved draft, API available_qty already reserves that draft;
+ * only subtract cart increases beyond the baseline loaded from the server.
+ */
+export function orderableQtyForDisplay(
+  menuLine: StockMenuFields | null | undefined,
+  activeOrders: CartLineForStock[],
+  baselineByItem: Record<string, number> | null
+): number | undefined {
+  if (!menuLine || !shouldEnforceStockFromMenuLine(menuLine)) return undefined;
+  const base = stockAvailable(menuLine);
+  if (base === Number.POSITIVE_INFINITY) return undefined;
+  const code = itemCodeForStock(menuLine);
+  const cartQty = cartQtyForItemCode(activeOrders, code);
+  const baselineQty = baselineByItem?.[code] ?? 0;
+  const extraInCart = baselineByItem ? Math.max(0, cartQty - baselineQty) : cartQty;
+  return Math.max(0, base - extraInCart);
+}
+
+export function maxQtyForCartLine(
+  menuLine: StockMenuFields | null | undefined,
+  activeOrders: CartLineForStock[],
+  lineUniqueId: string
+): number {
+  if (!menuLine || !shouldEnforceStockFromMenuLine(menuLine)) return 99;
+  const avail = stockAvailable(menuLine);
+  const code = itemCodeForStock(menuLine);
+  const others = activeOrders.reduce((sum, o) => {
+    if (o.uniqueId === lineUniqueId) return sum;
+    if (itemCodeForStock(o) !== code) return sum;
+    return sum + o.quantity;
+  }, 0);
+  return Math.max(0, Math.min(99, avail - others));
+}
+
 export function validateActiveOrdersAgainstMenu(
   menuItems: StockMenuFields[],
   activeOrders: CartLineForStock[]
@@ -64,7 +112,7 @@ export function validateActiveOrdersAgainstMenu(
     const code = itemCodeForStock(o);
     if (!code) continue;
     const prev = totals.get(code);
-    const qty = (prev?.qty || 0) + o.quantity;
+    const qty = (prev?.qty || 0) + (o.quantity ?? 0);
     totals.set(code, {
       qty,
       label: prev?.label || o.item_name || o.name || code,

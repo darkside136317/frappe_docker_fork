@@ -23,6 +23,11 @@
     "loading_ury_pos": "Loading URY POS...",
     "please_wait_setup": "Please wait while we set things up"
   },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "vi": "Vietnamese"
+  },
   "header": {
     "search_placeholder_default": "Search orders, menu items, or customers...",
     "search_placeholder_orders": "Search Orders",
@@ -40,6 +45,15 @@
     "categories": "Categories",
     "all_items": "All Items"
   },
+  "course_labels": {
+    "Drinks": "Drinks",
+    "Foods": "Foods",
+    "Food": "Food",
+    "Appetizers": "Appetizers",
+    "Main Course": "Main Course",
+    "Desserts": "Desserts",
+    "Special": "Special"
+  },
   "cart": {
     "empty_title": "Your cart is empty",
     "empty_subtitle": "Add items to get started with your order",
@@ -53,8 +67,9 @@
     "processing_order": "Processing Order...",
     "loading_order": "Loading order details...",
     "edit_item": "Edit item",
-    "add_comment": "Add comment",
-    "edit_comment": "Edit comment"
+    "add_comment": "Add order note",
+    "edit_comment": "Edit order note",
+    "order_note_label": "Order note"
   },
   "order": {
     "select_to_view": "Select an order to view details",
@@ -78,7 +93,9 @@
     "adjustment": "Adjustment",
     "total": "Total",
     "pay_button": "Pay {{amount}}",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "success_title": "Payment successful",
+    "failed_title": "Payment failed"
   },
   "pos": {
     "not_opened_title": "POS Not Opened",
@@ -89,8 +106,11 @@
     "switch_to_desk": "Switch to Desk"
   },
   "customer": {
-    "search_placeholder": "Search customer...",
-    "type_to_search": "Please type to search...",
+    "search_placeholder": "Name or phone number...",
+    "search_hint": "Search by customer name or mobile number (min. 2 letters or 3 digits).",
+    "type_more_chars": "Type at least {{count}} characters to search by name.",
+    "type_more_digits": "Type at least {{count}} digits to search by phone.",
+    "type_to_search": "Enter name or phone to search...",
     "no_customers_found": "No customers found",
     "add_new": "Add New Customer",
     "add_with_name": "Add \"{{name}}\"...",
@@ -109,10 +129,11 @@
     "failed_create": "Failed to create customer. Please try again."
   },
   "comment": {
-    "title": "Order Comments",
-    "label": "Add comments for this order",
-    "placeholder": "Enter any special instructions or comments...",
-    "save_button": "Save Comment"
+    "title": "Order note",
+    "label": "Note for the whole order",
+    "order_hint": "Applies to the entire order (kitchen / service). Item notes are set per dish in the product dialog.",
+    "placeholder": "E.g. serve together, birthday table, less spicy...",
+    "save_button": "Save note"
   },
   "errors": {
     "pos_profile_not_found": "POS Profile not found",
@@ -136,10 +157,17 @@
     "invalid_discount": "Please enter a valid discount value",
     "discount_exceeds_max": "Percentage discount cannot exceed 100%",
     "please_print_first": "Please print invoice before making payment",
+    "payment_failed": "Payment failed: {{reason}}",
+    "payment_no_method": "Please enter an amount for at least one payment method",
+    "payment_amount_insufficient": "Amount entered ({{entered}}) is less than total due ({{due}})",
     "enter_cancel_reason": "Please enter a reason for cancellation.",
     "dine_in_restricted": "Dine In is not available for your role",
     "insufficient_stock_order": "Insufficient stock for {{name}}: available {{available}}, ordered {{ordered}}.",
-    "item_out_of_stock": "This item is out of stock."
+    "insufficient_stock_cart": "Insufficient stock: available {{available}}, requested {{requested}}.",
+    "insufficient_stock_max": "Maximum available is {{available}} for this item.",
+    "item_out_of_stock": "This item is out of stock.",
+    "failed_add_to_cart": "Failed to add item to cart.",
+    "failed_update_quantity": "Failed to update quantity."
   },
   "success": {
     "order_cancelled": "Order cancelled successfully",
@@ -147,6 +175,7 @@
     "order_updated": "Order updated successfully",
     "printed": "Printed successfully",
     "payment_successful": "Payment successful",
+    "payment_successful_detail": "Payment completed — Invoice {{invoice}}",
     "order_moved_to_draft": "Order moved to Draft after printing."
   },
   "orders": {
@@ -206,7 +235,8 @@
   },
   "product_dialog": {
     "special_instructions": "Special Instructions",
-    "special_instructions_placeholder": "Add any special instructions or notes for this item...",
+    "special_instructions_placeholder": "E.g. no ice, extra spicy, allergy to peanuts...",
+    "instructions_hint": "Shown on this line in the cart and sent to kitchen for this item only.",
     "quantity": "Quantity",
     "variants": "Variants",
     "addons": "Add-ons",

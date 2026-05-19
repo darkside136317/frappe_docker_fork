@@ -1,11 +1,29 @@
+import { useSyncExternalStore } from 'react';
 import { loadLocale } from './loader';
-import { DEFAULT_LANGUAGE } from './config';
+import {
+  DEFAULT_LANGUAGE,
+  LANGUAGE_STORAGE_KEY,
+  POS_UI_LANGUAGE_CODES,
+  SUPPORTED_LANGUAGES,
+  type PosUiLanguage,
+} from './config';
 import { resolveLanguage } from './resolve-language';
 
 type TranslationMap = Record<string, unknown>;
 
 let activeLocale: TranslationMap = {};
 let activeLanguage: string = DEFAULT_LANGUAGE;
+
+const listeners = new Set<() => void>();
+
+function notifyLanguageChange(): void {
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribeI18n(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 /**
  * Load and activate a locale. Call this once before rendering the app.
@@ -14,6 +32,34 @@ export async function initI18n(lang?: string): Promise<void> {
   const resolvedLang = lang ?? resolveLanguage();
   activeLocale = await loadLocale(resolvedLang);
   activeLanguage = resolvedLang;
+  const { preloadCourseLabels } = await import('./course-labels');
+  await preloadCourseLabels(resolvedLang);
+}
+
+/**
+ * Switch POS UI language (persists in localStorage and re-renders subscribers).
+ */
+export async function setLanguage(lang: string): Promise<void> {
+  const next =
+    lang in SUPPORTED_LANGUAGES ? lang : DEFAULT_LANGUAGE;
+  if (next === activeLanguage) return;
+
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
+  activeLocale = await loadLocale(next);
+  activeLanguage = next;
+  applyDocumentLocale();
+  const { preloadCourseLabels } = await import('./course-labels');
+  await preloadCourseLabels(next);
+  notifyLanguageChange();
+}
+
+export function isPosUiLanguage(lang: string): lang is PosUiLanguage {
+  return (POS_UI_LANGUAGE_CODES as string[]).includes(lang);
+}
+
+/** Re-render React components that call this hook when language changes. */
+export function useI18nLanguage(): string {
+  return useSyncExternalStore(subscribeI18n, getActiveLanguage, () => DEFAULT_LANGUAGE);
 }
 
 /**

@@ -7,13 +7,15 @@ import { cn } from '../lib/utils';
 import { Button, Badge } from './ui';
 import CommentDialog from './CommentDialog';
 import { useState } from 'react';
-import { t } from '../i18n';
+import { t, useI18nLanguage } from '../i18n';
+import { translateCourseLabel } from '../i18n/course-labels';
 
 interface SidebarProps {
   disabled?: boolean;
 }
 
 const Sidebar = ({ disabled }: SidebarProps) => {
+  useI18nLanguage();
   const { selectedCategory, setSelectedCategory, menuItems, categories, orderComment, setOrderComment } = usePOSStore();
   const [showCommentDialog, setShowCommentDialog] = useState(false);
 
@@ -98,7 +100,7 @@ const Sidebar = ({ disabled }: SidebarProps) => {
                   )}
                   <div className="flex items-center gap-3 ms-1">
                     <UtensilsCrossed className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                    <span className="text-start">{category.label}</span>
+                    <span className="text-start">{translateCourseLabel(category.label)}</span>
                   </div>
                   <Badge variant="secondary" size="sm" className="text-xs text-gray-500 bg-gray-100 min-w-[24px] text-center">
                     {count}

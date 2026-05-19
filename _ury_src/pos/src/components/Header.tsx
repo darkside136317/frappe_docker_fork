@@ -15,8 +15,11 @@ import { usePOSStore } from '../store/pos-store';
 import type { RootState } from '../store/root-store';
 import { logout } from '../lib/auth-api';
 import { showToast } from './ui/toast';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useI18nLanguage } from '../i18n';
 
 const Header = () => {
+  useI18nLanguage();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const user = useRootStore((state: RootState) => state.user);
@@ -134,6 +137,7 @@ const Header = () => {
 
         {/* Right side actions */}
         <div className="flex items-center gap-4">
+          <LanguageSwitcher compact />
           {/* User menu */}
           <div className="relative" ref={userMenuRef}>
             <Button

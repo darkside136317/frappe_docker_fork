@@ -3,13 +3,22 @@ import { usePOSStore } from '../store/pos-store';
 import MenuCard from './MenuCard';
 import { Spinner } from './ui/spinner';
 import { cn } from '../lib/utils';
-import { t } from '../i18n';
+import { t, useI18nLanguage } from '../i18n';
+import { translateCourseLabel } from '../i18n/course-labels';
 import type { MenuItem } from '../store/pos-store';
-import { shouldEnforceStockFromMenuLine, stockAvailable } from '../lib/stock-validation';
+import {
+  orderableQtyForDisplay,
+  shouldEnforceStockFromMenuLine,
+} from '../lib/stock-validation';
 
-function isMenuCardOutOfStock(item: MenuItem): boolean {
+function isMenuCardOutOfStock(
+  item: MenuItem,
+  activeOrders: MenuItem[],
+  baseline: Record<string, number> | null
+): boolean {
   if (!shouldEnforceStockFromMenuLine(item)) return false;
-  return stockAvailable(item) < 1;
+  const display = orderableQtyForDisplay(item, activeOrders, baseline);
+  return display !== undefined && display < 1;
 }
 
 interface MenuListProps {
@@ -17,6 +26,7 @@ interface MenuListProps {
 }
 
 const MenuList: React.FC<MenuListProps> = ({ onItemClick }) => {
+  useI18nLanguage();
   const {
     menuItems,
     menuLoading,
@@ -26,7 +36,9 @@ const MenuList: React.FC<MenuListProps> = ({ onItemClick }) => {
     quickFilter,
     fetchMenuItems,
     isMenuInteractionDisabled,
-    isOrderInteractionDisabled
+    isOrderInteractionDisabled,
+    activeOrders,
+    orderStockBaseline,
   } = usePOSStore();
 
   useEffect(() => {
@@ -82,15 +94,13 @@ const MenuList: React.FC<MenuListProps> = ({ onItemClick }) => {
                 name={item.name}
                 price={item.price}
                 item_image={item.image}
-                course={item.course_label || item.course}
+                course={translateCourseLabel(item.course_label || item.course)}
                 item={item.item}
-                orderable_qty={
-                  typeof item.available_qty === 'number' && !Number.isNaN(item.available_qty)
-                    ? item.available_qty
-                    : shouldEnforceStockFromMenuLine(item)
-                      ? stockAvailable(item)
-                      : undefined
-                }
+                orderable_qty={orderableQtyForDisplay(
+                  item,
+                  activeOrders,
+                  orderStockBaseline
+                )}
                 stock_qty={
                   typeof item.stock_qty === 'number' &&
                   !Number.isNaN(item.stock_qty)
@@ -98,7 +108,10 @@ const MenuList: React.FC<MenuListProps> = ({ onItemClick }) => {
                     : undefined
                 }
                 onClick={() => onItemClick(item)}
-                disabled={isInteractionDisabled || isMenuCardOutOfStock(item)}
+                disabled={
+                  isInteractionDisabled ||
+                  isMenuCardOutOfStock(item, activeOrders, orderStockBaseline)
+                }
               />
             ))}
           </div>

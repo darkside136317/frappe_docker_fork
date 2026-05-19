@@ -7,13 +7,14 @@ import TableSelectionDialog from './TableSelectionDialog';
 import { DEFAULT_ORDER_TYPE, DINE_IN, ORDER_TYPES , type OrderType} from '../data/order-types';
 import { HandPlatter } from 'lucide-react';
 import { isUserRestrictedFromTableOrders } from '../lib/role-utils';
-import { t } from '../i18n';
+import { t, useI18nLanguage } from '../i18n';
 
 interface OrderTypeSelectProps {
   disabled?: boolean;
 }
 
 const OrderTypeSelect = ({ disabled }: OrderTypeSelectProps) => {
+  useI18nLanguage();
   const { selectedOrderType, setSelectedOrderType, selectedTable, posProfile, isUpdatingOrder } = usePOSStore();
   const { user } = useRootStore();
   const [showTableDialog, setShowTableDialog] = useState(false);

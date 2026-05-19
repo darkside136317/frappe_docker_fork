@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageSquare, X } from 'lucide-react';
 import { Button } from './ui';
 import { t } from '../i18n';
+import { MAX_INSTRUCTION_LENGTH, normalizeInstruction } from '../lib/order-instructions';
+import { cn } from '../lib/utils';
 
 interface CommentDialogProps {
   isOpen: boolean;
@@ -13,8 +15,14 @@ interface CommentDialogProps {
 const CommentDialog = ({ isOpen, onClose, onSave, initialComment = '' }: CommentDialogProps) => {
   const [comment, setComment] = useState(initialComment);
 
+  useEffect(() => {
+    if (isOpen) {
+      setComment(initialComment);
+    }
+  }, [isOpen, initialComment]);
+
   const handleSave = () => {
-    onSave(comment);
+    onSave(normalizeInstruction(comment));
     onClose();
   };
 
@@ -31,46 +39,45 @@ const CommentDialog = ({ isOpen, onClose, onSave, initialComment = '' }: Comment
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('comment.title')}
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('comment.title')}</h2>
           </div>
-          <Button
-            onClick={handleCancel}
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-          >
+          <Button onClick={handleCancel} variant="ghost" size="sm" className="h-8 w-8 p-0">
             <X className="w-4 h-4" />
           </Button>
         </div>
-        
-        <div className="mb-6">
-          <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
-            {t('comment.label')}
-          </label>
+
+        <p className="text-xs text-gray-500 mb-3">{t('comment.order_hint')}</p>
+
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="order-comment" className="block text-sm font-medium text-gray-700">
+              {t('comment.label')}
+            </label>
+            <span className="text-xs text-gray-500 tabular-nums">
+              {comment.length}/{MAX_INSTRUCTION_LENGTH}
+            </span>
+          </div>
           <textarea
-            id="comment"
+            id="order-comment"
             value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            maxLength={MAX_INSTRUCTION_LENGTH}
+            rows={4}
+            onChange={(e) => setComment(e.target.value.slice(0, MAX_INSTRUCTION_LENGTH))}
             placeholder={t('comment.placeholder')}
-            className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            className={cn(
+              'w-full px-3 py-2 border rounded-lg resize-y min-h-[6rem] text-sm',
+              'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none',
+              comment.trim() && 'border-blue-300 bg-blue-50/40'
+            )}
             autoFocus
           />
         </div>
-        
+
         <div className="flex gap-3 justify-end">
-          <Button
-            onClick={handleCancel}
-            variant="outline"
-            className="px-4 py-2"
-          >
+          <Button onClick={handleCancel} variant="outline" className="px-4 py-2">
             {t('common.cancel')}
           </Button>
-          <Button
-            onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700"
-          >
+          <Button onClick={handleSave} className="px-4 py-2 bg-blue-600 hover:bg-blue-700">
             {t('comment.save_button')}
           </Button>
         </div>
@@ -79,4 +86,4 @@ const CommentDialog = ({ isOpen, onClose, onSave, initialComment = '' }: Comment
   );
 };
 
-export default CommentDialog; 
+export default CommentDialog;

@@ -5,7 +5,16 @@ import { cn, formatCurrency } from '../lib/utils';
 import { Button, Dialog, DialogContent, Input } from './ui';
 import { db } from '../lib/frappe-sdk';
 import { t } from '../i18n';
-import { shouldEnforceStockFromMenuLine, stockAvailable } from '../lib/stock-validation';
+import {
+  orderableQtyForDisplay,
+  shouldEnforceStockFromMenuLine,
+  stockAvailable,
+} from '../lib/stock-validation';
+import { showToast } from './ui/toast';
+import {
+  MAX_INSTRUCTION_LENGTH,
+  normalizeInstruction,
+} from '../lib/order-instructions';
 
 interface Variant {
   id: string;
@@ -44,7 +53,8 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
     setSelectedItem, 
     getItemQuantityFromCart,
     activeOrders,
-    menuItems
+    menuItems,
+    orderStockBaseline,
   } = usePOSStore();
   
   // Find existing item in cart
@@ -245,6 +255,10 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
     const currentNum = quantity === '' ? 0 : parseInt(quantity, 10);
     if (currentNum < maxOrderableQty) {
       setQuantity((currentNum + 1).toString());
+    } else if (shouldEnforceStockFromMenuLine(selectedItem)) {
+      showToast.error(
+        t('errors.insufficient_stock_max', { available: String(maxOrderableQty) })
+      );
     }
   };
 
@@ -261,6 +275,11 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
       return; // Don't add to order if quantity is 0 or invalid
     }
     if (numericQuantity > maxOrderableQty) {
+      if (shouldEnforceStockFromMenuLine(selectedItem)) {
+        showToast.error(
+          t('errors.insufficient_stock_max', { available: String(maxOrderableQty) })
+        );
+      }
       return;
     }
 
@@ -269,11 +288,14 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
       removeFromOrder(itemToReplace.uniqueId);
     }
 
+    const note = normalizeInstruction(comments);
+
     // Add main item as a cart line
     const orderItem: OrderItem = {
       ...selectedItem,
       quantity: numericQuantity,
-      price: basePrice
+      price: basePrice,
+      comment: note || undefined,
     };
     addToOrder(orderItem);
 
@@ -387,7 +409,13 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
               {shouldEnforceStockFromMenuLine(selectedItem) ? (
                 <>
                   {t('menu.available_for_order')}:{' '}
-                  {Number(stockAvailable(selectedItem)).toLocaleString(undefined, {
+                  {Number(
+                    orderableQtyForDisplay(
+                      selectedItem,
+                      activeOrders,
+                      orderStockBaseline
+                    ) ?? stockAvailable(selectedItem)
+                  ).toLocaleString(undefined, {
                     maximumFractionDigits: 2,
                   })}
                 </>
@@ -406,12 +434,26 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
           </div>
 
           <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-3">{t('product_dialog.special_instructions')}</h3>
-            <Input
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">{t('product_dialog.special_instructions')}</h3>
+              <span className="text-xs text-gray-500 tabular-nums">
+                {comments.length}/{MAX_INSTRUCTION_LENGTH}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">{t('product_dialog.instructions_hint')}</p>
+            <textarea
               placeholder={t('product_dialog.special_instructions_placeholder')}
               value={comments}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setComments(e.target.value)}
-              className="resize-none"
+              maxLength={MAX_INSTRUCTION_LENGTH}
+              rows={3}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                setComments(e.target.value.slice(0, MAX_INSTRUCTION_LENGTH))
+              }
+              className={cn(
+                'w-full rounded-lg border px-3 py-2 text-sm resize-y min-h-[4.5rem]',
+                'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
+                comments.trim() && 'border-blue-300 bg-blue-50/40'
+              )}
             />
           </div>
 
@@ -445,6 +487,9 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
                 variant="outline"
                 size="icon"
                 className="h-8 w-8 rounded-full"
+                disabled={
+                  (quantity === '' ? 0 : parseInt(quantity, 10)) >= maxOrderableQty
+                }
               >
                 <Plus className="h-4 w-4" />
               </Button>
